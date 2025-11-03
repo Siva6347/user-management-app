@@ -1,0 +1,9 @@
+<div class="container mt-4">
+    <button class="btn btn-secondary mb-3" routerLink="/">Back</button>
+
+    @if (user) {
+    <pre>{{ user | json }}</pre>
+    } @else {
+    <p class="text-muted">Loading user details...</p>
+    }
+</div>

@@ -1,0 +1,26 @@
+<div>
+    <table>
+        <thead>
+            <tr>
+                <th>Header</th>
+                @for (header of headers; track header) {
+                <th>{{ header | titlecase }}</th>
+                }
+            </tr>
+        </thead>
+
+        <tbody>
+            @for (user of users.slice(0,20); track user.id) {
+            <tr (click)="goToDetails(user)">
+                @for (header of headers; track header) {
+                <td>{{ user[header] }}</td>
+                }
+            </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (users.length === 0) {
+    <p class="text-center text-muted mt-3">No users found.</p>
+    }
+</div>
