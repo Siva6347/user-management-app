@@ -1,34 +1,145 @@
-import { CommonModule, TitleCasePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { User } from '../../models/user.model';
+import { Pagination } from '../pagination/pagination';
+import { ConfirmationModal } from '../confirmation-modal/confirmation-modal';
+import { Toast } from '../toast/toast';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, TitleCasePipe],
+  imports: [CommonModule, Pagination, FormsModule, ConfirmationModal, Toast],
   templateUrl: './user-list.html',
   styleUrl: './user-list.scss',
 })
-export class UserList {
-  @Input() users: any[] = [];
-  headers: string[] = [];
+export class UserList implements OnInit {
+  users = signal<User[]>([]);
+  headers = signal<string[]>([]);
+  isLoading = signal<boolean>(true);
+  currentPage = signal<number>(1);
+  itemsPerPage = signal<number>(10);
+  searchTerm = signal<string>('');
+  editingRow: User | null = null;
+  editingField: string | null = null;
+  showConfirmationModal = false;
+  showToast = false;
+  userToDelete: User | null = null;
 
-  constructor(private router: Router, private http: HttpClient) {}
+  filteredUsers = computed(() => {
+    const term = this.searchTerm().toLowerCase();
+    if (!term) return this.users();
+    return this.users().filter((user) => user.name.toLowerCase().includes(term));
+  });
 
-  ngOnInit() {
-    setTimeout(() => {
-      this.http
-        .get<any[]>('https://microsoftedge.github.io/Demos/json-dummy-data/64KB.json')
-        .subscribe((data) => {
-          this.users = data;
-          this.headers = Object.keys(data[0]);
-          console.log(this.headers);
-          console.log(this.users);
-        });
-    }, 1000);
+  totalItems = computed(() => this.filteredUsers().length);
+  displayedUsers = computed(() => {
+    const start = (this.currentPage() - 1) * this.itemsPerPage();
+    const end = start + this.itemsPerPage();
+    return this.filteredUsers().slice(start, end);
+  });
+
+  constructor(private router: Router, private userService: UserService) {}
+
+  ngOnInit(): void {
+    this.loadData();
   }
-  goToDetails(user: any) {
-    this.router.navigate(['/user', user.id]);
+
+  loadData(): void {
+    this.isLoading.set(true);
+    const localUsers = localStorage.getItem('users');
+
+    if (localUsers) {
+      const data = JSON.parse(localUsers);
+      this.setUserData(data);
+      this.isLoading.set(false);
+    } else {
+      this.userService.getUsers().subscribe({
+        next: (data) => {
+          if (data && data.length > 0) {
+            this.users.set(data);
+            localStorage.setItem('users', JSON.stringify(data));
+            this.setUserData(data);
+          }
+          this.isLoading.set(false);
+        },
+        error: (error) => {
+          console.error('Error loading data:', error);
+          this.isLoading.set(false);
+        },
+      });
+    }
+  }
+
+  private setUserData(data: User[]): void {
+    const excludedFields = ['tags', 'friends'];
+    const headers = Object.keys(data[0]).filter(
+      (key) => !excludedFields.includes(key) && typeof data[0][key] !== 'object'
+    );
+    this.headers.set(headers);
+    this.users.set(data);
+  }
+
+  openConfirmationModal(user: User): void {
+    this.userToDelete = user;
+    this.showConfirmationModal = true;
+  }
+
+  onConfirmationModalClose(): void {
+    this.showConfirmationModal = false;
+    this.userToDelete = null;
+  }
+
+  onDeleteConfirm(): void {
+    if (this.userToDelete) {
+      this.deleteUser(this.userToDelete);
+      this.onConfirmationModalClose();
+      this.showToast = true;
+    }
+  }
+
+  deleteUser(userToDelete: User): void {
+    const updatedUsers = this.users().filter((user) => user.id !== userToDelete.id);
+    this.users.set(updatedUsers);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+  }
+
+  setEditing(row: User, field: string): void {
+    this.editingRow = row;
+    this.editingField = field;
+  }
+
+  updateUser(row: User, field: string, event: any): void {
+    const value = event.target.value;
+    const updatedUsers = this.users().map((user) =>
+      user.id === row.id ? { ...user, [field]: value } : user
+    );
+    this.users.set(updatedUsers);
+    this.clearEditing();
+  }
+
+  clearEditing(): void {
+    this.editingRow = null;
+    this.editingField = null;
+  }
+
+  goToDetails(user: User): void {
+    const key = (user as any).id ?? (user as any).guid;
+    this.router.navigate(['/user', key]);
+  }
+
+  onPageChange(page: number): void {
+    this.currentPage.set(page);
+  }
+
+  onItemsPerPageChange(items: number): void {
+    this.itemsPerPage.set(items);
+    this.currentPage.set(1);
+  }
+
+  onSearchChange(): void {
+    this.currentPage.set(1);
   }
 }

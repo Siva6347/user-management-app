@@ -1,9 +1,33 @@
-<div class="container mt-4">
-    <button class="btn btn-secondary mb-3" routerLink="/">Back</button>
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">User Details</h4>
+                <button class="btn btn-primary" routerLink="/">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="card-body">
+                @if (user()) {
 
-    @if (user) {
-    <pre>{{ user | json }}</pre>
-    } @else {
-    <p class="text-muted">Loading user details...</p>
-    }
+                <div>
+                    <h2>{{ user()?.name }}</h2>
+                    <dl class="row">
+                        @for (key of objectKeys(user()!); track key) {
+                        <dt class="col-sm-3">{{ key | titlecase }}</dt>
+                        <dd class="col-sm-9">{{ user()![key] }}</dd>
+                        }
+                    </dl>
+                </div>
+
+                } @else {
+                <div class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                }
+            </div>
+        </div>
+    </div>
 </div>
